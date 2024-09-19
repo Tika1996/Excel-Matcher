@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr" class="bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Matcher</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="font-sans text-gray-800">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-indigo-600">Application Excel Matcher</h1>
+            </div>
+        </header>
+        <main class="flex-grow container mx-auto px-4 py-8">
+            <div class="grid gap-8 md:grid-cols-2">
+                <section class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-700">Importer le fichier de base de données</h2>
+                    <label for="databaseFile" class="block mb-2">Fichier de base de données :</label>
+                    <input type="file" id="databaseFile" accept=".xlsx" class="w-full p-2 border border-gray-300 rounded-md">
+                    <div id="databaseColumns" class="mt-4 hidden">
+                        <label for="numColumns" class="block mb-2">Nombre de colonnes à comparer :</label>
+                        <input type="number" id="numColumns" min="1" value="1" class="w-full p-2 border border-gray-300 rounded-md">
+                        <div id="dbColumnSelects" class="mt-4"></div>
+                        <label for="dbCodeCol" class="block mt-4 mb-2">Colonne de code de base de données :</label>
+                        <select id="dbCodeCol" class="w-full p-2 border border-gray-300 rounded-md"></select>
+                    </div>
+                </section>
+                <section class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-700">Importer les fichiers de travail</h2>
+                    <label for="workFiles" class="block mb-2">Fichiers de travail :</label>
+                    <input type="file" id="workFiles" accept=".xlsx" multiple class="w-full p-2 border border-gray-300 rounded-md">
+                    <div id="workColumns" class="mt-4 hidden">
+                        <div id="workColumnSelects"></div>
+                        <label for="workCodeCol" class="block mt-4 mb-2">Colonne pour placer le résultat :</label>
+                        <select id="workCodeCol" class="w-full p-2 border border-gray-300 rounded-md"></select>
+                    </div>
+                </section>
+            </div>
+            <button id="processFiles" class="mt-8 w-full bg-indigo-600 text-white py-3 px-6 rounded-md hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Traiter les fichiers</button>
+            <div id="progressBarContainer" class="mt-8 hidden">
+                <div class="relative pt-1">
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-indigo-200">
+                        <div id="progressBar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500" style="width: 0%"></div>
+                    </div>
+                    <div id="progressPercent" class="text-center">0%</div>
+                </div>
+            </div>
+        </main>
+        <footer class="bg-white shadow-sm mt-8">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h2 class="text-xl font-semibold mb-4 text-indigo-700">Télécharger le fichier traité</h2>
+                <div id="downloadLinks"></div>
+            </div>
+        </footer>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/string-similarity/umd/string-similarity.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
