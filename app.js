@@ -1,24 +1,15 @@
-// app.js
-document.addEventListener('DOMContentLoaded', () => {
-    // Vérifier l'authentification avant d'initialiser l'application
-    if (!isAuthenticated()) {
-        return;
-    }
-
-    document.getElementById('databaseFile').addEventListener('change', handleDatabaseFile);
-    document.getElementById('workFiles').addEventListener('change', handleWorkFiles);
-    document.getElementById('numColumns').addEventListener('input', updateColumnSelects);
-    document.getElementById('processFiles').addEventListener('click', processFiles);
-});
+document.getElementById('databaseFile').addEventListener('change', handleDatabaseFile);
+document.getElementById('workFiles').addEventListener('change', handleWorkFiles); // Modification ici
+document.getElementById('numColumns').addEventListener('input', updateColumnSelects);
+document.getElementById('processFiles').addEventListener('click', processFiles);
 
 let databaseData = null;
-let workDataList = [];
+let workDataList = []; // Stocker les données de plusieurs fichiers de travail
 let selectedDbIndices = [];
 let selectedDbCodeIndex = null;
-let workFileNames = [];
+let workFileNames = []; // Stocker les noms de plusieurs fichiers de travail
 
 function handleDatabaseFile(event) {
-    if (!isAuthenticated()) return;
     const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
@@ -39,8 +30,7 @@ function handleDatabaseFile(event) {
     }
 }
 
-function handleWorkFiles(event) {
-    if (!isAuthenticated()) return;
+function handleWorkFiles(event) { // Modification ici
     const files = Array.from(event.target.files);
     workDataList = [];
     workFileNames = [];
@@ -55,7 +45,7 @@ function handleWorkFiles(event) {
             workDataList.push(XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {header: 1}));
             workFileNames.push(file.name);
             filesProcessed++;
-            if (filesProcessed === files.length) {
+            if (filesProcessed === files.length) { // Lorsque tous les fichiers sont chargés
                 document.getElementById('workColumns').classList.remove('hidden');
                 populateSelect(document.getElementById('workCodeCol'), workDataList[0][0]);
                 updateColumnSelects(false);
@@ -70,7 +60,6 @@ function handleWorkFiles(event) {
 }
 
 function updateColumnSelects(updateDbColumns = true) {
-    if (!isAuthenticated()) return;
     const numColumns = parseInt(document.getElementById('numColumns').value);
     const dbColumnSelects = document.getElementById('dbColumnSelects');
     const workColumnSelects = document.getElementById('workColumnSelects');
@@ -105,26 +94,25 @@ function updateColumnSelects(updateDbColumns = true) {
 }
 
 function processFiles() {
-    if (!isAuthenticated()) return;
     const dbSelects = document.querySelectorAll('.db-select');
     const workSelects = document.querySelectorAll('.work-select');
     const workCodeIndex = parseInt(document.getElementById('workCodeCol').value);
     const dbCodeIndex = parseInt(document.getElementById('dbCodeCol').value);
 
-    const dbIndices = Array.from(dbSel
-
-ects).map(select => parseInt(select.value));
+    const dbIndices = Array.from(dbSelects).map(select => parseInt(select.value));
     const workIndices = Array.from(workSelects).map(select => parseInt(select.value));
 
     workDataList.forEach((workData, fileIndex) => {
-        const resultData = [workData[0].concat(['Matched Code', 'Match Type', 'Match Score', 'Matched From'])];
+        // Ajout des nouvelles colonnes, sans 'Matched Code'
+        const resultData = [workData[0].concat(['Match Type', 'Match Score', 'Matched From'])];
         
         document.getElementById('progressBarContainer').classList.remove('hidden');
         updateProgressBar(0);
 
         for (let i = 1; i < workData.length; i++) {
             if (workData[i][workCodeIndex]) {
-                resultData.push(workData[i].concat([workData[i][workCodeIndex], 'Exact', '1', '']));
+                // Si un code existe déjà, on le garde et on remplit les autres colonnes
+                resultData.push(workData[i].concat(['Exact', '1', '']));
                 updateProgressBar(Math.round((i / (workData.length - 1)) * 100));
                 continue;
             }
@@ -157,7 +145,10 @@ ects).map(select => parseInt(select.value));
             const matchScore = bestMatch.score.toFixed(2);
             const matchCode = bestMatch.score >= 0.7 ? bestMatch.code : '';
             
-            resultData.push(workData[i].concat([matchCode, bestMatch.type, matchScore, bestMatch.matchedFrom]));
+            // Modification ici : on place le code dans la colonne existante et on ajoute les nouvelles colonnes
+            const newRow = [...workData[i]];
+            newRow[workCodeIndex] = matchCode; // Place le code dans la colonne existante
+            resultData.push(newRow.concat([bestMatch.type, matchScore, bestMatch.matchedFrom]));
             updateProgressBar(Math.round((i / (workData.length - 1)) * 100));
         }
 
@@ -174,7 +165,7 @@ ects).map(select => parseInt(select.value));
         a.download = workFileNames[fileIndex].replace(/(\.xlsx)$/i, '_processed$1');
         a.textContent = `Télécharger ${workFileNames[fileIndex].replace(/(\.xlsx)$/i, '_processed$1')}`;
         a.classList.add('download-link');
-        document.querySelector('footer').appendChild(a);
+        document.getElementById('downloadLinks').appendChild(a);
     });
 
     document.getElementById('progressBarContainer').classList.add('hidden');
@@ -195,8 +186,8 @@ function populateSelect(selectElement, headers, selectedValue = null) {
 
 function updateProgressBar(value) {
     const progressBar = document.getElementById('progressBar');
-    progressBar.style.width = `${value}%`;
-    document.getElementById('progressPercent').textContent = `${value}%`;
+    progressBar.value = value;
+    progressBar.textContent = `${value}%`;
 }
 
 function removeAccentsAndNormalizeArabic(str) {
