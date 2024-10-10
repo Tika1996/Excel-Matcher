@@ -119,18 +119,28 @@ function processFiles() {
         updateProgressBar(0);
 
         for (let i = 1; i < workData.length; i++) {
+            // Vérifier si la ligne est vide
+            if (workData[i].every(cell => cell === '' || cell === undefined)) {
+                continue; // Ignorer les lignes vides
+            }
+
             if (workData[i][workCodeIndex]) {
                 resultData.push(workData[i].concat([workData[i][workCodeIndex], 'Exact', '1', '']));
                 updateProgressBar(Math.round((i / (workData.length - 1)) * 100));
                 continue;
             }
 
-            const workRow = workIndices.map(index => removeAccentsAndNormalizeArabic(String(workData[i][index]).toLowerCase()));
+            const workRow = workIndices.map(index => removeAccentsAndNormalizeArabic(String(workData[i][index] || '').toLowerCase()));
             let bestMatch = { score: 0, code: '', type: '', matchedFrom: '' };
 
             for (let j = 1; j < databaseData.length; j++) {
-                const dbRow = dbIndices.map(index => removeAccentsAndNormalizeArabic(String(databaseData[j][index]).toLowerCase()));
-                const dbCode = String(databaseData[j][dbCodeIndex]);
+                // Vérifier si la ligne de la base de données est vide
+                if (databaseData[j].every(cell => cell === '' || cell === undefined)) {
+                    continue; // Ignorer les lignes vides dans la base de données
+                }
+
+                const dbRow = dbIndices.map(index => removeAccentsAndNormalizeArabic(String(databaseData[j][index] || '').toLowerCase()));
+                const dbCode = String(databaseData[j][dbCodeIndex] || '');
 
                 if (workRow.every((value, index) => value === dbRow[index])) {
                     bestMatch = { score: 1, code: dbCode, type: 'Exact', matchedFrom: dbRow.join(', ') };
