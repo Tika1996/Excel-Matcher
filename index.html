@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Excel Matcher</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -14,12 +14,18 @@
         }
 
         .glass {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.15);
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 15px;
             border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.47);
         }
 
         .custom-file-input::-webkit-file-upload-button {
@@ -29,7 +35,7 @@
         .custom-file-input::before {
             content: 'Sélectionner';
             display: inline-block;
-            background: linear-gradient(top, #f9f9f9, #e3e3e3);
+            background: linear-gradient(to bottom, #f9f9f9, #e3e3e3);
             border: 1px solid #999;
             border-radius: 3px;
             padding: 5px 8px;
@@ -39,14 +45,48 @@
             text-shadow: 1px 1px #fff;
             font-weight: 700;
             font-size: 10pt;
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
 
         .custom-file-input:hover::before {
             border-color: black;
+            background: linear-gradient(to bottom, #e3e3e3, #f9f9f9);
         }
 
         .custom-file-input:active::before {
-            background: -webkit-linear-gradient(top, #e3e3e3, #f9f9f9);
+            background: linear-gradient(to bottom, #e3e3e3, #f9f9f9);
+        }
+
+        .drag-drop-area {
+            position: relative;
+            border: 2px dashed transparent;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background 0.3s ease, border-color 0.3s ease;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .drag-drop-area:hover {
+            background: rgba(255, 255, 255, 0.35);
+            border-color: rgba(31, 38, 135, 0.37);
+        }
+
+        .drag-drop-area.drag-over {
+            background: rgba(255, 255, 255, 0.45);
+            border-color: #4a90e2;
+        }
+
+        .drag-drop-area input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -71,14 +111,10 @@
         <main>
             <section class="glass p-6 mb-6">
                 <h2 class="text-2xl font-medium text-gray-700 mb-4">Importer le fichier de base de données</h2>
-                <label for="databaseFile" class="block text-sm font-medium text-gray-700 mb-2">Fichier de base de données :</label>
-                <input type="file" id="databaseFile" accept=".xlsx" class="custom-file-input mb-4 block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-full file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-violet-50 file:text-violet-700
-                    hover:file:bg-violet-100
-                ">
+                <div class="drag-drop-area" id="databaseDropArea">
+                    <p>Glissez et déposez votre fichier ici ou cliquez pour sélectionner</p>
+                    <input type="file" id="databaseFile" accept=".xlsx" class="custom-file-input">
+                </div>
                 <div id="databaseColumns" class="column-selection hidden">
                     <label for="numColumns" class="block text-sm font-medium text-gray-700 mb-2">Nombre de colonnes à comparer :</label>
                     <input type="number" id="numColumns" min="1" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
@@ -89,14 +125,10 @@
             </section>
             <section class="glass p-6 mb-6">
                 <h2 class="text-2xl font-medium text-gray-700 mb-4">Importer les fichiers de travail</h2>
-                <label for="workFiles" class="block text-sm font-medium text-gray-700 mb-2">Fichiers de travail :</label>
-                <input type="file" id="workFiles" accept=".xlsx" multiple class="custom-file-input mb-4 block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-full file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-violet-50 file:text-violet-700
-                    hover:file:bg-violet-100
-                ">
+                <div class="drag-drop-area" id="workDropArea">
+                    <p>Glissez et déposez vos fichiers ici ou cliquez pour sélectionner</p>
+                    <input type="file" id="workFiles" accept=".xlsx" multiple class="custom-file-input">
+                </div>
                 <div id="workColumns" class="column-selection hidden">
                     <div id="workColumnSelects" class="mt-4"></div>
                     <label for="workCodeCol" class="block text-sm font-medium text-gray-700 mt-4 mb-2">Colonne pour placer le résultat :</label>
@@ -125,5 +157,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js"></script>
     <script src="auth.js"></script>
     <script src="app.js"></script>
+
+    <script>
+        document.querySelectorAll('.drag-drop-area').forEach(area => {
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                area.classList.add('drag-over');
+            });
+
+            area.addEventListener('dragleave', () => {
+                area.classList.remove('drag-over');
+            });
+
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                area.classList.remove('drag-over');
+                const input = area.querySelector('input[type="file"]');
+                input.files = e.dataTransfer.files;
+                // Trigger any additional file handling logic here
+            });
+        });
+    </script>
 </body>
 </html>

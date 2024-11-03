@@ -112,59 +112,77 @@ function processFiles() {
     const dbIndices = Array.from(dbSelects).map(select => parseInt(select.value));
     const workIndices = Array.from(workSelects).map(select => parseInt(select.value));
 
+    // Prétraitement de la base de données pour une recherche plus rapide
+    const dbMap = new Map();
+    for (let j = 1; j < databaseData.length; j++) {
+        if (databaseData[j].every(cell => cell === '' || cell === undefined)) continue;
+        const dbRow = dbIndices.map(index => removeAccentsAndNormalizeArabic(String(databaseData[j][index] || '').toLowerCase()));
+        const dbCode = String(databaseData[j][dbCodeIndex] || '');
+        const key = dbRow.join('|');
+        if (!dbMap.has(key)) {
+            dbMap.set(key, { code: dbCode, row: dbRow });
+        }
+    }
+
     workDataList.forEach((workData, fileIndex) => {
         const resultData = [workData[0].concat(['Matched Code', 'Match Type', 'Match Score', 'Matched From'])];
         
         document.getElementById('progressBarContainer').classList.remove('hidden');
         updateProgressBar(0);
 
-        for (let i = 1; i < workData.length; i++) {
-            // Vérifier si la ligne est vide
-            if (workData[i].every(cell => cell === '' || cell === undefined)) {
-                continue; // Ignorer les lignes vides
-            }
+        const batchSize = 1000;
+        const totalRows = workData.length - 1;
 
-            if (workData[i][workCodeIndex]) {
-                resultData.push(workData[i].concat([workData[i][workCodeIndex], 'Exact', '1', '']));
-                updateProgressBar(Math.round((i / (workData.length - 1)) * 100));
-                continue;
-            }
+        for (let batchStart = 1; batchStart < workData.length; batchStart += batchSize) {
+            const batchEnd = Math.min(batchStart + batchSize, workData.length);
+            const batchResults = [];
 
-            const workRow = workIndices.map(index => removeAccentsAndNormalizeArabic(String(workData[i][index] || '').toLowerCase()));
-            let bestMatch = { score: 0, code: '', type: '', matchedFrom: '' };
-
-            for (let j = 1; j < databaseData.length; j++) {
-                // Vérifier si la ligne de la base de données est vide
-                if (databaseData[j].every(cell => cell === '' || cell === undefined)) {
-                    continue; // Ignorer les lignes vides dans la base de données
+            for (let i = batchStart; i < batchEnd; i++) {
+                if (workData[i].every(cell => cell === '' || cell === undefined)) {
+                    continue;
                 }
 
-                const dbRow = dbIndices.map(index => removeAccentsAndNormalizeArabic(String(databaseData[j][index] || '').toLowerCase()));
-                const dbCode = String(databaseData[j][dbCodeIndex] || '');
+                // Vérification si la colonne de résultat est déjà remplie
+                if (workData[i][workCodeIndex]) {
+                    // Si la colonne de résultat est déjà remplie, passer à la ligne suivante
+                    batchResults.push(workData[i].concat(['', '', '', '']));
+                    continue;
+                }
 
-                if (workRow.every((value, index) => value === dbRow[index])) {
-                    bestMatch = { score: 1, code: dbCode, type: 'Exact', matchedFrom: dbRow.join(', ') };
-                    break;
+                const workRow = workIndices.map(index => removeAccentsAndNormalizeArabic(String(workData[i][index] || '').toLowerCase()));
+                const workKey = workRow.join('|');
+                
+                let bestMatch = { score: 0, code: '', type: '', matchedFrom: '' };
+
+                // Recherche exacte
+                if (dbMap.has(workKey)) {
+                    const match = dbMap.get(workKey);
+                    bestMatch = { score: 1, code: match.code, type: 'Exact', matchedFrom: match.row.join(', ') };
                 } else {
-                    const similarities = workRow.map((value, index) => stringSimilarity.compareTwoStrings(value, dbRow[index]));
-                    const avgSimilarity = similarities.reduce((a, b) => a + b, 0) / similarities.length;
+                    // Recherche approximative
+                    for (const [key, value] of dbMap) {
+                        const similarities = workRow.map((val, idx) => stringSimilarity.compareTwoStrings(val, value.row[idx]));
+                        const avgSimilarity = similarities.reduce((a, b) => a + b, 0) / similarities.length;
 
-                    if (avgSimilarity > bestMatch.score) {
-                        bestMatch = { 
-                            score: avgSimilarity, 
-                            code: dbCode, 
-                            type: 'Approximate', 
-                            matchedFrom: dbRow.join(', ')
-                        };
+                        if (avgSimilarity > bestMatch.score) {
+                            bestMatch = { 
+                                score: avgSimilarity, 
+                                code: value.code, 
+                                type: 'Approximate', 
+                                matchedFrom: value.row.join(', ')
+                            };
+                        }
                     }
                 }
+
+                const matchScore = bestMatch.score.toFixed(2);
+                const matchCode = bestMatch.score >= 0.7 ? bestMatch.code : '';
+                
+                batchResults.push(workData[i].concat([matchCode, bestMatch.type, matchScore, bestMatch.matchedFrom]));
             }
 
-            const matchScore = bestMatch.score.toFixed(2);
-            const matchCode = bestMatch.score >= 0.7 ? bestMatch.code : '';
-            
-            resultData.push(workData[i].concat([matchCode, bestMatch.type, matchScore, bestMatch.matchedFrom]));
-            updateProgressBar(Math.round((i / (workData.length - 1)) * 100));
+            resultData.push(...batchResults);
+            updateProgressBar(Math.round((batchEnd / totalRows) * 100));
         }
 
         const worksheet = XLSX.utils.aoa_to_sheet(resultData);
@@ -185,7 +203,6 @@ function processFiles() {
 
     document.getElementById('progressBarContainer').classList.add('hidden');
 }
-
 function populateSelect(selectElement, headers, selectedValue = null) {
     selectElement.innerHTML = '';
     headers.forEach((header, index) => {

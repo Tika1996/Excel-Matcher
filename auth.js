@@ -1,5 +1,5 @@
 // auth.js
-const HASHED_PASSWORD = '145e56e08f7260f20ccc960472a93539c8ef9887b934709b3937c0b307a80574'; // Mot de passe : admin
+const HASHED_PASSWORD = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'; // Mot de passe : admin
 
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('loginForm');
