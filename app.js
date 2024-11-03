@@ -225,3 +225,232 @@ function updateProgressBar(value) {
 function removeAccentsAndNormalizeArabic(str) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u064B-\u065F]/g, "").replace(/[\u06D6-\u06DC]/g, "").replace(/[\u06DF-\u06E4]/g, "").replace(/[\u06E7-\u06E8]/g, "").replace(/[\u06EA-\u06ED]/g, "");
 }
+
+// Gestionnaire de fichiers amélioré
+class FileHandler {
+    constructor(fileInputId, previewContainerId, isMultiple = false) {
+        this.fileInput = document.getElementById(fileInputId);
+        this.previewContainer = document.getElementById(previewContainerId);
+        this.isMultiple = isMultiple;
+        
+        this.init();
+    }
+
+    init() {
+        this.fileInput.addEventListener('change', () => this.updateFilePreview());
+    }
+
+    updateFilePreview() {
+        if (this.isMultiple) {
+            const files = Array.from(this.fileInput.files);
+            this.previewContainer.innerHTML = files.map(file => this.createFilePreviewElement(file)).join('');
+        } else {
+            const file = this.fileInput.files[0];
+            if (file) {
+                this.previewContainer.classList.remove('hidden');
+                this.previewContainer.innerHTML = this.createFilePreviewElement(file);
+            } else {
+                this.previewContainer.classList.add('hidden');
+            }
+        }
+    }
+
+    createFilePreviewElement(file) {
+        return `
+            <div class="file-preview" data-file="${file.name}">
+                <span class="file-icon">📄</span>
+                <span class="file-name">${file.name}</span>
+                <span class="remove-file" title="Supprimer" onclick="fileHandlers['${this.fileInput.id}'].removeFile('${file.name}')">×</span>
+            </div>
+        `;
+    }
+
+    removeFile(fileName) {
+        if (this.isMultiple) {
+            const dt = new DataTransfer();
+            Array.from(this.fileInput.files)
+                .filter(file => file.name !== fileName)
+                .forEach(file => dt.items.add(file));
+            this.fileInput.files = dt.files;
+        } else {
+            this.fileInput.value = '';
+        }
+        this.updateFilePreview();
+    }
+}
+
+// Initialisation des gestionnaires de fichiers
+const fileHandlers = {
+    'databaseFile': new FileHandler('databaseFile', 'databaseFilePreview', false),
+    'workFiles': new FileHandler('workFiles', 'workFilesPreview', true)
+};
+
+// Gestion des colonnes améliorée
+class ColumnManager {
+    constructor() {
+        this.numColumnsInput = document.getElementById('numColumns');
+        this.dbColumnSelects = document.getElementById('dbColumnSelects');
+        this.workColumnSelects = document.getElementById('workColumnSelects');
+        this.dbCodeCol = document.getElementById('dbCodeCol');
+        this.workCodeCol = document.getElementById('workCodeCol');
+        this.dbColumnNames = [];
+        this.workColumnNames = [];
+        this.selectedDbColumns = {};
+        this.selectedDbCodeColumn = null;
+        
+        this.init();
+    }
+
+    init() {
+        this.numColumnsInput.addEventListener('change', () => this.updateColumnSelects());
+        
+        document.getElementById('databaseFile').addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                this.readExcelColumns(e.target.files[0], false);
+            }
+        });
+
+        document.getElementById('workFiles').addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                this.readExcelColumns(e.target.files[0], true);
+            }
+        });
+    }
+
+    incrementColumns() {
+        const currentValue = parseInt(this.numColumnsInput.value);
+        this.numColumnsInput.value = currentValue + 1;
+        this.saveCurrentSelections();
+        this.updateColumnSelects();
+    }
+
+    decrementColumns() {
+        const currentValue = parseInt(this.numColumnsInput.value);
+        if (currentValue > 1) {
+            this.numColumnsInput.value = currentValue - 1;
+            this.saveCurrentSelections();
+            this.updateColumnSelects();
+        }
+    }
+
+    saveCurrentSelections() {
+        document.querySelectorAll('#dbColumnSelects select').forEach(select => {
+            this.selectedDbColumns[select.id] = select.value;
+        });
+        
+        if (this.dbCodeCol) {
+            this.selectedDbCodeColumn = this.dbCodeCol.value;
+        }
+    }
+
+    async readExcelColumns(file, isWorkFile) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+            
+            if (jsonData.length > 0) {
+                const columnData = jsonData[0].map((col, index) => ({
+                    name: col || `Colonne ${index + 1}`,
+                    index: index
+                }));
+
+                if (isWorkFile) {
+                    this.workColumnNames = columnData;
+                    this.updateWorkColumnSelects();
+                } else {
+                    this.dbColumnNames = columnData;
+                    this.updateDbColumnSelects();
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    updateDbColumnSelects() {
+        if (this.dbColumnNames.length > 0) {
+            this.dbCodeCol.innerHTML = this.dbColumnNames.map(col => 
+                `<option value="${col.index}" ${this.selectedDbCodeColumn == col.index ? 'selected' : ''}>
+                    ${col.name}
+                </option>`
+            ).join('');
+        }
+
+        const numColumns = parseInt(this.numColumnsInput.value);
+        
+        this.dbColumnSelects.innerHTML = Array(numColumns).fill(0).map((_, i) => {
+            const selectId = `dbCol${i}`;
+            return `
+                <div class="glass p-4 rounded-lg">
+                    <label for="${selectId}" class="block text-sm font-medium text-gray-700 mb-2">
+                        Colonne ${i + 1}
+                    </label>
+                    <div class="relative">
+                        <select id="${selectId}" class="w-full rounded-md appearance-none bg-white bg-opacity-10 px-4 py-2">
+                            ${this.dbColumnNames.map(col => 
+                                `<option value="${col.index}" 
+                                    ${this.selectedDbColumns[selectId] == col.index ? 'selected' : ''}>
+                                    ${col.name}
+                                </option>`
+                            ).join('')}
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    updateWorkColumnSelects() {
+        if (this.workColumnNames.length > 0) {
+            this.workCodeCol.innerHTML = this.workColumnNames.map(col => 
+                `<option value="${col.index}">${col.name}</option>`
+            ).join('');
+        }
+
+        const numColumns = parseInt(this.numColumnsInput.value);
+        
+        this.workColumnSelects.innerHTML = Array(numColumns).fill(0).map((_, i) => `
+            <div class="glass p-4 rounded-lg">
+                <label for="workCol${i}" class="block text-sm font-medium text-gray-700 mb-2">
+                    Colonne ${i + 1}
+                </label>
+                <div class="relative">
+                    <select id="workCol${i}" class="w-full rounded-md appearance-none bg-white bg-opacity-10 px-4 py-2">
+                        ${this.workColumnNames.map(col => 
+                            `<option value="${col.index}">${col.name}</option>`
+                        ).join('')}
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    updateColumnSelects() {
+        this.updateDbColumnSelects();
+        this.updateWorkColumnSelects();
+    }
+}
+
+// Initialisation du gestionnaire de colonnes
+const columnManager = new ColumnManager();
+
+// Fonctions globales pour les boutons + et -
+function incrementColumns() {
+    columnManager.incrementColumns();
+}
+
+function decrementColumns() {
+    columnManager.decrementColumns();
+}
